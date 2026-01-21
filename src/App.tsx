@@ -1,39 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import './App.scss';
 import { peopleFromServer } from './data/people';
 import { Suggestions } from './components/Suggestions';
 import { Person } from './types/Person';
-import debounce from 'lodash.debounce';
 
 export const App: React.FC = () => {
   const [people] = useState<Person[]>(peopleFromServer);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [query, setQuery] = useState('');
-  const [appliedQuery, setAppliedQuery] = useState('');
 
-  const debounced = useMemo(
-    () => debounce((v: string) => setAppliedQuery(v), 300),
-    [],
-  );
-
-  useEffect(() => () => debounced.cancel(), [debounced]);
-
-  const handleQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const trimmed = event.target.value.trim();
-
-    setQuery(event.target.value);
-    setSelectedPerson(null);
-    debounced(trimmed);
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    setSelectedPerson(null); // ✅ очищаємо
   };
 
   const handleSelect = (person: Person) => {
     setSelectedPerson(person);
     setQuery(person.name);
   };
-
-  const filterPeople = useMemo(() => {
-    return people.filter(person => person.name.includes(appliedQuery));
-  }, [appliedQuery, people]);
 
   return (
     <div className="container">
@@ -50,10 +34,11 @@ export const App: React.FC = () => {
         )}
 
         <Suggestions
-          onInputChange={handleQueryChange}
+          people={people}
           query={query}
-          filteredPeople={filterPeople}
+          onQueryChange={handleQueryChange}
           onSelect={handleSelect}
+          delay={300}
         />
       </main>
     </div>

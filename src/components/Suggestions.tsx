@@ -1,61 +1,92 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Person } from '../types/Person';
+import debounce from 'lodash.debounce';
 type Props = {
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   query: string;
-  filteredPeople: Person[];
+  people: Person[];
+  delay?: number;
+  onQueryChange: (value: string) => void;
   onSelect: (person: Person) => void;
 };
 
 export const Suggestions: React.FC<Props> = ({
-  onInputChange,
   query,
-  filteredPeople,
+  people,
+  delay = 300,
+  onQueryChange,
   onSelect,
-}) => (
-  <>
-    <div className="dropdown is-active">
-      <div className="dropdown-trigger">
-        <input
-          type="text"
-          placeholder="Enter a part of the name"
-          className="input"
-          data-cy="search-input"
-          value={query}
-          onChange={onInputChange}
-        />
-      </div>
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [appliedQuery, setAppliedQuery] = useState('');
 
-      <div className="dropdown-menu" role="menu" data-cy="suggestions-list">
-        <div className="dropdown-content">
-          {filteredPeople.map(person => (
-            <div
-              className="dropdown-item"
-              data-cy="suggestion-item"
-              key={person.slug}
-              onClick={() => onSelect(person)}
-            >
-              <p className="has-text-link">{person.name}</p>
-            </div>
-          ))}
+  const debounced = useMemo(() => debounce(setAppliedQuery, delay), [delay]);
+
+  useEffect(() => () => debounced.cancel(), [debounced]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+
+    onQueryChange(value);
+    debounced(value.trim());
+  };
+
+  const handleSelect = (person: Person) => {
+    onSelect(person);
+    setIsOpen(false); // ✅ закриваємо список
+  };
+
+  const filteredPeople = useMemo(() => {
+    return people.filter(person => person.name.includes(appliedQuery));
+  }, [appliedQuery, people]);
+
+  return (
+    <>
+      <div className="dropdown is-active">
+        <div className="dropdown-trigger">
+          <input
+            type="text"
+            placeholder="Enter a part of the name"
+            className="input"
+            data-cy="search-input"
+            value={query}
+            onFocus={() => setIsOpen(true)}
+            onBlur={() => setIsOpen(false)}
+            onChange={handleChange}
+          />
         </div>
+        {isOpen && (
+          <div className="dropdown-menu" data-cy="suggestions-list">
+            <div className="dropdown-content">
+              {filteredPeople.map(person => (
+                <div
+                  key={person.slug}
+                  data-cy="suggestion-item"
+                  className="dropdown-item"
+                  onMouseDown={() => handleSelect(person)}
+                >
+                  {person.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
 
-    {query && filteredPeople.length === 0 && (
-      <div
-        className="
-            notification
-            is-danger
-            is-light
-            mt-3
-            is-align-self-flex-start
-          "
-        role="alert"
-        data-cy="no-suggestions-message"
-      >
-        <p className="has-text-danger">No matching suggestions</p>
-      </div>
-    )}
-  </>
-);
+      {appliedQuery && filteredPeople.length === 0 && (
+        <div
+          className="
+              notification
+              is-danger
+              is-light
+              mt-3
+              is-align-self-flex-start
+            "
+          role="alert"
+          data-cy="no-suggestions-message"
+        >
+          <p className="has-text-danger">No matching suggestions</p>
+        </div>
+      )}
+    </>
+  );
+};
